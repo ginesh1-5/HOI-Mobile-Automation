@@ -3,7 +3,7 @@
 # Start Android Emulator
 # Usage: ./scripts/android-emulator-start.sh [avd_name]
 
-AVD_NAME=${1:-"Pixel_5_API_33"}
+AVD_NAME=${1:-"Pixel_9_API_Baklava"}
 
 echo "Starting Android emulator: $AVD_NAME"
 
