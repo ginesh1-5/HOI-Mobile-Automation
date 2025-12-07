@@ -10,7 +10,7 @@ on:
 jobs:
   android-tests:
     name: Run Android Tests
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     
     steps:
       - name: Checkout code
@@ -43,6 +43,7 @@ jobs:
         with:
           api-level: 33
           arch: arm64-v8a
+          target: default
           profile: pixel_4
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -accel on
           disable-animations: true
