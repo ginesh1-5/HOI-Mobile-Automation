@@ -1,0 +1,22 @@
+{
+  "validUser": {
+    "mobileNumber": "9876987698",
+    "otp": "1234",
+    "email": "testuser@hoi.com",
+    "password": "Test@1234",
+    "name": "Test User",
+    "phone": "1234567890"
+  },
+  "invalidUser": {
+    "mobileNumber": "1234567890",
+    "otp": "9999",
+    "email": "invalid@hoi.com",
+    "password": "WrongPassword"
+  },
+  "adminUser": {
+    "mobileNumber": "9876543210",
+    "otp": "5678",
+    "email": "admin@hoi.com",
+    "password": "Admin@1234"
+  }
+}

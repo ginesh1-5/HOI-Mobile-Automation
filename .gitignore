@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+# package-lock.json - Keep this for CI/CD reproducibility
+yarn.lock
+
+# Build outputs
+dist/
+build/
+
+# Test results and reports
+reports/allure-results/*
+reports/allure-report/*
+reports/screenshots/*
+reports/appium.log
+!reports/.gitkeep
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# App binaries (keep structure but ignore actual files)
+apps/android/*.apk
+apps/ios/*.app
+!apps/android/.gitkeep
+!apps/ios/.gitkeep
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Coverage
+coverage/
+.nyc_output/
+
+scripts/test-slack-notification.js

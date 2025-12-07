@@ -1,0 +1,125 @@
+name: Test Notifications
+
+on:
+  workflow_run:
+    workflows: ["Android Tests (Simple)", "Android Mobile Automation Tests"]
+    types:
+      - completed
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion != 'skipped' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: |
+          if [ -f package.json ]; then
+            npm ci
+          else
+            echo "No package.json found, installing axios only"
+            npm init -y
+            npm install axios
+          fi
+      
+      - name: Send Slack Notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        if: env.SLACK_WEBHOOK_URL != ''
+        run: |
+          node -e "
+          const axios = require('axios');
+          const status = '${{ github.event.workflow_run.conclusion }}';
+          const workflow = '${{ github.event.workflow_run.name }}';
+          const url = '${{ github.event.workflow_run.html_url }}';
+          const repo = '${{ github.repository }}';
+          const runId = '${{ github.event.workflow_run.id }}';
+          
+          const color = status === 'success' ? 'good' : status === 'failure' ? 'danger' : 'warning';
+          const emoji = status === 'success' ? '✅' : status === 'failure' ? '❌' : '⚠️';
+          
+          axios.post(process.env.SLACK_WEBHOOK_URL, {
+            text: \`\${emoji} Test Pipeline: \${workflow}\`,
+            username: 'Test Automation Bot',
+            icon_emoji: ':robot_face:',
+            attachments: [{
+              color: color,
+              fields: [
+                { title: 'Status', value: status.toUpperCase(), short: true },
+                { title: 'Workflow', value: workflow, short: true },
+                { title: 'Repository', value: repo, short: true },
+                { title: 'Run ID', value: runId, short: true }
+              ],
+              actions: [{
+                type: 'button',
+                text: 'View Results',
+                url: url
+              }],
+              footer: 'GitHub Actions',
+              ts: Math.floor(Date.now() / 1000)
+            }]
+          }).catch(err => {
+            console.error('Slack notification failed:', err.message);
+            process.exit(0);
+          });
+          "
+        continue-on-error: true
+      
+      - name: Send WhatsApp Notification
+        env:
+          WHATSAPP_API_URL: ${{ secrets.WHATSAPP_API_URL }}
+          WHATSAPP_API_KEY: ${{ secrets.WHATSAPP_API_KEY }}
+          WHATSAPP_PHONE: ${{ secrets.WHATSAPP_PHONE }}
+        if: env.WHATSAPP_API_URL != '' && env.WHATSAPP_API_KEY != ''
+        run: |
+          node -e "
+          const axios = require('axios');
+          const status = '${{ github.event.workflow_run.conclusion }}';
+          const workflow = '${{ github.event.workflow_run.name }}';
+          const url = '${{ github.event.workflow_run.html_url }}';
+          const repo = '${{ github.repository }}';
+          
+          const emoji = status === 'success' ? '✅' : status === 'failure' ? '❌' : '⚠️';
+          const message = \`\${emoji} Test Pipeline Notification\n\nWorkflow: \${workflow}\nStatus: \${status.toUpperCase()}\nRepository: \${repo}\n\nView Results: \${url}\`;
+          
+          axios.post(\`\${process.env.WHATSAPP_API_URL}/send\`, {
+            to: process.env.WHATSAPP_PHONE,
+            message: message
+          }, {
+            headers: {
+              'Authorization': \`Bearer \${process.env.WHATSAPP_API_KEY}\`,
+              'Content-Type': 'application/json'
+            }
+          }).catch(err => {
+            console.error('WhatsApp notification failed:', err.message);
+            process.exit(0);
+          });
+          "
+        continue-on-error: true
+      
+      - name: Notification Summary
+        if: always()
+        run: |
+          echo "=== Notification Status ==="
+          echo "Workflow: ${{ github.event.workflow_run.name }}"
+          echo "Status: ${{ github.event.workflow_run.conclusion }}"
+          echo "URL: ${{ github.event.workflow_run.html_url }}"
+          echo ""
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            echo "Slack: Configured"
+          else
+            echo "Slack: Not configured"
+          fi
+          if [ -n "${{ secrets.WHATSAPP_API_URL }}" ] && [ -n "${{ secrets.WHATSAPP_API_KEY }}" ]; then
+            echo "WhatsApp: Configured"
+          else
+            echo "WhatsApp: Not configured"
+          fi

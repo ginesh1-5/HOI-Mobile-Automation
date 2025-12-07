@@ -1,0 +1,67 @@
+name: iOS Test Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  ios-tests:
+    runs-on: macos-latest
+    
+    strategy:
+      matrix:
+        env: [dev, qa, stage]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Start Appium
+        run: |
+          npm install -g appium
+          appium --port 4723 &
+          sleep 5
+      
+      - name: Start iOS Simulator
+        run: |
+          xcrun simctl boot "iPhone 14" || true
+          open -a Simulator
+          sleep 30
+      
+      - name: Run iOS Tests
+        env:
+          ENV: ${{ matrix.env }}
+        run: |
+          npm run test:ios:${{ matrix.env }}
+        continue-on-error: true
+      
+      - name: Generate Allure Report
+        if: always()
+        run: npm run report:allure:generate
+      
+      - name: Upload Allure Results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: allure-results-ios-${{ matrix.env }}
+          path: reports/allure-results
+      
+      - name: Upload Screenshots
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: screenshots-ios-${{ matrix.env }}
+          path: reports/screenshots
+
