@@ -43,12 +43,19 @@ jobs:
         with:
           api-level: 33
           arch: x86_64
-          profile: Nexus 6
+          profile: pixel_4
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -accel on
+          disable-animations: true
+          disable-spellchecker: true
+          disable-linux-hw-check: true
           script: |
             adb wait-for-device
             adb shell settings put global window_animation_scale 0
             adb shell settings put global transition_animation_scale 0
             adb shell settings put global animator_duration_scale 0
+            adb shell settings put global window_animation_scale 0.0
+            adb shell settings put global transition_animation_scale 0.0
+            adb shell settings put global animator_duration_scale 0.0
             echo "Emulator is ready"
       
       - name: Install Appium
@@ -71,7 +78,7 @@ jobs:
       
       - name: Run Android Tests
         run: |
-          npm run test:android
+          npx wdio run config/wdio.android.conf.ts --spec=./src/tests/smoke/login.smoke.spec.ts
         continue-on-error: true
       
       - name: Generate Allure Report
