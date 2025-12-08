@@ -42,6 +42,22 @@ hoi-mobile-automation/
 npm install
 ```
 
+## Quick Start
+
+**Run the project with a single command:**
+
+```bash
+npx wdio run config/wdio.android.conf.ts --spec=./src/tests/smoke/login.smoke.spec.ts
+```
+
+**Or use the npm script:**
+
+```bash
+npm run test:android
+```
+
+> **Note:** Make sure Android emulator and Appium server are running before executing tests.
+
 ## Configuration
 
 1. Place your app binaries in:
@@ -54,9 +70,37 @@ npm install
 
 ## Running Tests
 
-### Android
+### Prerequisites Before Running
+1. **Start Android Emulator:**
+   ```bash
+   ./scripts/android-emulator-start.sh
+   # Or manually: emulator -avd Pixel_9_API_Baklava -no-snapshot-load
+   ```
+
+2. **Start Appium Server:**
+   ```bash
+   appium --log-level info
+   # Or use: ./scripts/start-appium.sh
+   ```
+
+3. **Verify Setup:**
+   ```bash
+   adb devices  # Should show emulator-5554
+   ```
+
+### Android Tests
+
+**Recommended Command (Explicit Spec Path):**
 ```bash
+npx wdio run config/wdio.android.conf.ts --spec=./src/tests/smoke/login.smoke.spec.ts
+```
+
+**Alternative Commands:**
+```bash
+# Using npm script (may need explicit spec path)
 npm run test:android
+
+# Environment-specific
 npm run test:android:dev
 npm run test:android:qa
 ```
@@ -70,14 +114,27 @@ npm run test:ios:qa
 
 ### Test Suites
 ```bash
+# Smoke tests (recommended)
 npm run test:smoke
+
+# Other suites
 npm run test:regression
 npm run test:sanity
 ```
 
 ## Reports
 
-Generate and view Allure reports:
+**Generate Allure Report:**
+```bash
+npm run report:allure:generate
+```
+
+**Open Allure Report:**
+```bash
+npm run report:allure:open
+```
+
+**Generate and Open (Combined):**
 ```bash
 npm run report:allure
 ```
