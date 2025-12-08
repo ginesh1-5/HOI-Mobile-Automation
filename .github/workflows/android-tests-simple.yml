@@ -17,36 +17,45 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Setup Node.js and other dependencies
+      # Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
+      # Install dependencies
       - name: Install dependencies
         run: npm install
-      
+
+      # Setup Java
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # Install and update Android SDK
-      - name: Install Android SDK components
+      # Install Android SDK
+      - name: Install Android SDK
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager --install 'build-tools;33.0.0' 'platform-tools' 'platforms;android-33' 'system-images;android-33;default;x86_64' 'emulator'
+          echo "Setting up Android SDK..."
+          mkdir -p $ANDROID_HOME
+          echo "sdk.dir=$ANDROID_HOME" > $GITHUB_ENV
+          wget https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip -O commandlinetools.zip
+          unzip commandlinetools.zip -d $ANDROID_HOME
+          rm commandlinetools.zip
+          yes | $ANDROID_HOME/cmdline-tools/bin/sdkmanager --licenses
+          $ANDROID_HOME/cmdline-tools/bin/sdkmanager --update
+          $ANDROID_HOME/cmdline-tools/bin/sdkmanager "build-tools;33.0.0" "platform-tools" "platforms;android-33" "system-images;android-33;default;x86_64" "emulator"
 
-      # Start the Android Emulator
+      # Start Android Emulator
       - name: Start Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33
           arch: x86_64
           target: google_apis
-          profile: Pixel 9 API Baklava # Your custom AVD profile
+          profile: Pixel 9 API Baklava
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-metrics
           emulator-boot-timeout: 600
           disable-animations: true
@@ -59,18 +68,20 @@ jobs:
             adb shell settings put global animator_duration_scale 0
             echo "Emulator is ready"
 
-      # Install Appium and start the server
+      # Install Appium
       - name: Install Appium
         run: |
           npm install -g appium@latest
           appium driver install uiautomator2
-      
+
+      # Start Appium Server
       - name: Start Appium Server
         run: |
           appium --log-level info &
           sleep 10
           echo "Appium server started"
-      
+
+      # Wait for Appium to be ready
       - name: Wait for Appium
         run: |
           until curl -f http://localhost:4723/wd/hub/status || [ $? -eq 22 ]; do
@@ -89,7 +100,7 @@ jobs:
         run: |
           npm run report:allure:generate
 
-      # Upload results
+      # Upload Allure Results
       - name: Upload Allure Results
         if: always()
         uses: actions/upload-artifact@v4
@@ -98,6 +109,7 @@ jobs:
           path: reports/allure-results
           retention-days: 30
 
+      # Upload Allure Report
       - name: Upload Allure Report
         if: always()
         uses: actions/upload-artifact@v4
@@ -106,6 +118,7 @@ jobs:
           path: reports/allure-report
           retention-days: 30
 
+      # Upload Screenshots
       - name: Upload Screenshots
         if: always()
         uses: actions/upload-artifact@v4
