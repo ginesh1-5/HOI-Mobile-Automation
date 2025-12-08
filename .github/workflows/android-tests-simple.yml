@@ -52,12 +52,30 @@ jobs:
           target: default
           profile: pixel_4
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-metrics
-          emulator-boot-timeout: 600
+          emulator-boot-timeout: 900
           disable-animations: true
           disable-spellchecker: true
           script: |
+            echo "Waiting for ADB to detect device..."
+            adb kill-server
+            adb start-server
             adb wait-for-device
-            sleep 5
+            echo "Device detected, waiting for boot completion..."
+            timeout=300
+            counter=0
+            while [ $counter -lt $timeout ]; do
+              boot_completed=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+              if [ "$boot_completed" = "1" ]; then
+                echo "Emulator is fully booted!"
+                break
+              fi
+              echo "Waiting for boot... ($counter/$timeout seconds)"
+              sleep 5
+              counter=$((counter + 5))
+            done
+            if [ "$boot_completed" != "1" ]; then
+              echo "Warning: Emulator may not be fully booted"
+            fi
             adb shell settings put global window_animation_scale 0
             adb shell settings put global transition_animation_scale 0
             adb shell settings put global animator_duration_scale 0
