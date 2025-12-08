@@ -53,33 +53,57 @@ jobs:
           profile: pixel_4
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-metrics
           emulator-boot-timeout: 900
+          disable-hw-accel: true
           disable-animations: true
           disable-spellchecker: true
           script: |
+            echo "=== Starting Emulator Boot Process ==="
             echo "Waiting for ADB to detect device..."
-            adb kill-server
+            adb kill-server || true
+            sleep 2
             adb start-server
+            sleep 2
+            
+            echo "Waiting for device to be detected..."
             adb wait-for-device
-            echo "Device detected, waiting for boot completion..."
-            timeout=300
-            counter=0
-            while [ $counter -lt $timeout ]; do
-              boot_completed=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
-              if [ "$boot_completed" = "1" ]; then
-                echo "Emulator is fully booted!"
+            echo "Device detected!"
+            
+            echo "Waiting for device to be online..."
+            for i in {1..60}; do
+              device_state=$(adb devices | grep emulator-5554 | awk '{print $2}' || echo "")
+              if [ "$device_state" = "device" ]; then
+                echo "Device is online!"
                 break
               fi
-              echo "Waiting for boot... ($counter/$timeout seconds)"
-              sleep 5
-              counter=$((counter + 5))
+              echo "Device state: $device_state (attempt $i/60)"
+              sleep 2
             done
+            
+            echo "Waiting for boot completion..."
+            for i in {1..120}; do
+              boot_completed=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r\n' || echo "0")
+              if [ "$boot_completed" = "1" ]; then
+                echo "✅ Emulator is fully booted!"
+                break
+              fi
+              echo "Boot status: $boot_completed (attempt $i/120)"
+              sleep 5
+            done
+            
             if [ "$boot_completed" != "1" ]; then
-              echo "Warning: Emulator may not be fully booted"
+              echo "⚠️ Warning: Emulator may not be fully booted (status: $boot_completed)"
+              echo "Continuing anyway..."
             fi
-            adb shell settings put global window_animation_scale 0
-            adb shell settings put global transition_animation_scale 0
-            adb shell settings put global animator_duration_scale 0
-            echo "Emulator is ready"
+            
+            echo "Applying emulator optimizations..."
+            adb shell settings put global window_animation_scale 0 || echo "Failed to set window_animation_scale"
+            adb shell settings put global transition_animation_scale 0 || echo "Failed to set transition_animation_scale"
+            adb shell settings put global animator_duration_scale 0 || echo "Failed to set animator_duration_scale"
+            
+            echo "Verifying device is ready..."
+            adb devices
+            adb shell getprop sys.boot_completed
+            echo "✅ Emulator is ready for testing!"
 
       # Install Appium
       - name: Install Appium
