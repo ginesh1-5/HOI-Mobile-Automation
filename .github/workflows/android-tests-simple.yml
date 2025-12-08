@@ -2,9 +2,9 @@ name: Android Tests (Simple)
 
 on:
   push:
-    branches: [ main, develop, master ]
+    branches: [main, develop, master]
   pull_request:
-    branches: [ main, develop, master ]
+    branches: [main, develop, master]
   workflow_dispatch:
 
 jobs:
@@ -13,24 +13,29 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+      # Step 1: Checkout the code
       - name: Checkout code
         uses: actions/checkout@v4
       
+      # Step 2: Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
       
+      # Step 3: Install dependencies
       - name: Install dependencies
         run: npm install
       
+      # Step 4: Setup Java
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
       
+      # Step 5: Setup Android SDK
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
@@ -38,18 +43,20 @@ jobs:
           target: default
           arch: x86_64
       
+      # Step 6: Start the Android Emulator with custom options
       - name: Start Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33
           arch: x86_64
           target: default
-          profile: pixel_4
+          profile: Medium_Phone_API_35 # Replace with your custom AVD
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-metrics
           emulator-boot-timeout: 600
           disable-animations: true
           disable-spellchecker: true
           script: |
+            # Wait for the device to be ready
             adb wait-for-device
             sleep 5
             adb shell settings put global window_animation_scale 0
@@ -57,17 +64,20 @@ jobs:
             adb shell settings put global animator_duration_scale 0
             echo "Emulator is ready"
       
+      # Step 7: Install Appium and dependencies
       - name: Install Appium
         run: |
           npm install -g appium@latest
           appium driver install uiautomator2
       
+      # Step 8: Start Appium Server
       - name: Start Appium Server
         run: |
           appium --log-level info &
           sleep 10
           echo "Appium server started"
       
+      # Step 9: Wait for Appium server readiness
       - name: Wait for Appium
         run: |
           until curl -f http://localhost:4723/wd/hub/status || [ $? -eq 22 ]; do
@@ -75,15 +85,18 @@ jobs:
             sleep 2
           done
       
+      # Step 10: Run the Android Tests (smoke/login in your case)
       - name: Run Android Tests
         run: npm run test:smoke:login
         continue-on-error: true
-      
+
+      # Step 11: Generate Allure Report
       - name: Generate Allure Report
         if: always()
         run: |
           npm run report:allure:generate
       
+      # Step 12: Upload Allure Results
       - name: Upload Allure Results
         if: always()
         uses: actions/upload-artifact@v4
@@ -91,7 +104,8 @@ jobs:
           name: allure-results
           path: reports/allure-results
           retention-days: 30
-      
+
+      # Step 13: Upload Allure Report
       - name: Upload Allure Report
         if: always()
         uses: actions/upload-artifact@v4
@@ -99,7 +113,8 @@ jobs:
           name: allure-report
           path: reports/allure-report
           retention-days: 30
-      
+
+      # Step 14: Upload Screenshots
       - name: Upload Screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -107,4 +122,3 @@ jobs:
           name: screenshots
           path: reports/screenshots
           retention-days: 7
-
