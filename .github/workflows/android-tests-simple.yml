@@ -35,18 +35,13 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # Install Android SDK
-      - name: Install Android SDK
-        run: |
-          echo "Setting up Android SDK..."
-          mkdir -p $ANDROID_HOME
-          echo "sdk.dir=$ANDROID_HOME" > $GITHUB_ENV
-          wget https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip -O commandlinetools.zip
-          unzip commandlinetools.zip -d $ANDROID_HOME
-          rm commandlinetools.zip
-          yes | $ANDROID_HOME/cmdline-tools/bin/sdkmanager --licenses
-          $ANDROID_HOME/cmdline-tools/bin/sdkmanager --update
-          $ANDROID_HOME/cmdline-tools/bin/sdkmanager "build-tools;33.0.0" "platform-tools" "platforms;android-33" "system-images;android-33;default;x86_64" "emulator"
+      # Setup Android SDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 33
+          target: default
+          arch: x86_64
 
       # Start Android Emulator
       - name: Start Android Emulator
@@ -54,8 +49,8 @@ jobs:
         with:
           api-level: 33
           arch: x86_64
-          target: google_apis
-          profile: Pixel 9 API Baklava
+          target: default
+          profile: pixel_4
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-metrics
           emulator-boot-timeout: 600
           disable-animations: true
