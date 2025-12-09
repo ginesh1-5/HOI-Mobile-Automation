@@ -43,67 +43,100 @@ jobs:
           target: default
           arch: x86_64
 
+      # Create Android Emulator AVD
+      - name: Create Android Emulator AVD
+        run: |
+          echo "=== Creating AVD ==="
+          echo "no" | avdmanager create avd \
+            --force \
+            --name test_avd \
+            --package "system-images;android-33;default;x86_64" \
+            --device "pixel_4" \
+            --abi x86_64
+          echo "✅ AVD created successfully"
+
       # Start Android Emulator
       - name: Start Android Emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 33
-          arch: x86_64
-          target: default
-          profile: pixel_4
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-metrics
-          emulator-boot-timeout: 900
-          disable-hw-accel: true
-          disable-animations: true
-          disable-spellchecker: true
-          script: |
-            echo "=== Starting Emulator Boot Process ==="
-            echo "Waiting for ADB to detect device..."
-            adb kill-server || true
+        run: |
+          echo "=== Starting Emulator ==="
+          echo "Preparing ADB..."
+          adb kill-server || true
+          sleep 1
+          adb start-server
+          sleep 2
+          
+          echo "Starting emulator in background..."
+          $ANDROID_HOME/emulator/emulator \
+            -avd test_avd \
+            -port 5554 \
+            -no-window \
+            -gpu swiftshader_indirect \
+            -noaudio \
+            -no-boot-anim \
+            -no-metrics \
+            -accel off \
+            &
+          EMULATOR_PID=$!
+          echo "Emulator started with PID: $EMULATOR_PID"
+          
+          echo "=== Waiting for Emulator to Boot ==="
+          
+          # Wait for device to appear in adb devices
+          echo "Step 1: Waiting for device to appear..."
+          for i in {1..120}; do
+            if adb devices | grep -q "emulator-5554"; then
+              echo "Device found in adb devices"
+              break
+            fi
+            echo "Waiting for device... ($i/120)"
             sleep 2
-            adb start-server
-            sleep 2
-            
-            echo "Waiting for device to be detected..."
-            adb wait-for-device
-            echo "Device detected!"
-            
-            echo "Waiting for device to be online..."
-            for i in {1..60}; do
-              device_state=$(adb devices | grep emulator-5554 | awk '{print $2}' || echo "")
-              if [ "$device_state" = "device" ]; then
-                echo "Device is online!"
-                break
-              fi
-              echo "Device state: $device_state (attempt $i/60)"
-              sleep 2
-            done
-            
-            echo "Waiting for boot completion..."
-            for i in {1..120}; do
+          done
+          
+          # Wait for device to be online (not offline)
+          echo "Step 2: Waiting for device to be online..."
+          device_state="offline"
+          for i in {1..180}; do
+            device_state=$(adb devices | grep emulator-5554 | awk '{print $2}' || echo "offline")
+            if [ "$device_state" = "device" ]; then
+              echo "✅ Device is online!"
+              break
+            fi
+            echo "Device state: $device_state (attempt $i/180)"
+            sleep 3
+          done
+          
+          # Wait for boot completion
+          echo "Step 3: Waiting for boot completion..."
+          boot_completed="0"
+          for i in {1..240}; do
+            if [ "$device_state" = "device" ]; then
               boot_completed=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r\n' || echo "0")
               if [ "$boot_completed" = "1" ]; then
                 echo "✅ Emulator is fully booted!"
                 break
               fi
-              echo "Boot status: $boot_completed (attempt $i/120)"
-              sleep 5
-            done
-            
-            if [ "$boot_completed" != "1" ]; then
-              echo "⚠️ Warning: Emulator may not be fully booted (status: $boot_completed)"
-              echo "Continuing anyway..."
+            else
+              # Re-check device state if still offline
+              device_state=$(adb devices | grep emulator-5554 | awk '{print $2}' || echo "offline")
             fi
-            
-            echo "Applying emulator optimizations..."
-            adb shell settings put global window_animation_scale 0 || echo "Failed to set window_animation_scale"
-            adb shell settings put global transition_animation_scale 0 || echo "Failed to set transition_animation_scale"
-            adb shell settings put global animator_duration_scale 0 || echo "Failed to set animator_duration_scale"
-            
-            echo "Verifying device is ready..."
+            echo "Boot status: $boot_completed, Device: $device_state (attempt $i/240)"
+            sleep 3
+          done
+          
+          if [ "$boot_completed" != "1" ]; then
+            echo "⚠️ Warning: Boot may not be complete (status: $boot_completed)"
+            echo "Current device state:"
             adb devices
-            adb shell getprop sys.boot_completed
-            echo "✅ Emulator is ready for testing!"
+          fi
+          
+          echo "Step 4: Applying optimizations..."
+          adb shell settings put global window_animation_scale 0 2>/dev/null || true
+          adb shell settings put global transition_animation_scale 0 2>/dev/null || true
+          adb shell settings put global animator_duration_scale 0 2>/dev/null || true
+          
+          echo "Step 5: Final verification..."
+          adb devices
+          echo "✅ Emulator setup complete!"
 
       # Install Appium
       - name: Install Appium
@@ -163,3 +196,12 @@ jobs:
           name: screenshots
           path: reports/screenshots
           retention-days: 7
+
+      # Stop Android Emulator (cleanup)
+      - name: Stop Android Emulator
+        if: always()
+        run: |
+          echo "=== Stopping Emulator ==="
+          adb -s emulator-5554 emu kill || true
+          pkill -f "emulator.*test_avd" || true
+          echo "✅ Emulator stopped"
