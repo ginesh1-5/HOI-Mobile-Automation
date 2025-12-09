@@ -64,30 +64,96 @@ jobs:
           echo "Available devices:"
           avdmanager list device | head -20
           
-          # Create AVD
-          echo "no" | avdmanager create avd \
+          # Create AVD with better error handling
+          echo "Creating AVD..."
+          if echo "no" | avdmanager create avd \
             --force \
             --name test_avd \
             --package "system-images;android-33;default;x86_64" \
-            --device "pixel_4"
+            --device "pixel_4"; then
+            echo "✅ AVD creation command succeeded"
+          else
+            echo "⚠️ AVD creation command returned error, but continuing..."
+          fi
           
           echo "=== Verifying AVD creation ==="
-          avdmanager list avd
-          echo "✅ AVD created successfully"
+          echo "Environment variables:"
+          echo "  ANDROID_AVD_HOME: $ANDROID_AVD_HOME"
+          echo "  HOME: $HOME"
+          echo "  ANDROID_SDK_HOME: $ANDROID_SDK_HOME"
+          echo "  ANDROID_HOME: $ANDROID_HOME"
+          
+          # List all AVDs
+          echo ""
+          echo "Available AVDs:"
+          avdmanager list avd || echo "Failed to list AVDs"
+          
+          # Check if AVD file exists in common locations
+          echo ""
+          echo "Checking AVD file locations:"
+          if [ -n "$ANDROID_AVD_HOME" ]; then
+            echo "  Checking $ANDROID_AVD_HOME:"
+            ls -la "$ANDROID_AVD_HOME" 2>/dev/null || echo "    Directory not found"
+          fi
+          
+          if [ -n "$HOME" ]; then
+            echo "  Checking $HOME/.android/avd:"
+            ls -la "$HOME/.android/avd" 2>/dev/null || echo "    Directory not found"
+          fi
+          
+          # Try to find AVD anywhere
+          echo ""
+          echo "Searching for test_avd files:"
+          find "$HOME" -name "test_avd*" -type f 2>/dev/null | head -10 || true
+          
+          echo "✅ AVD creation step completed"
 
       # Start Android Emulator
       - name: Start Android Emulator
         run: |
           echo "=== Starting Emulator ==="
+          
+          # Verify AVD exists before starting
+          echo "=== Verifying AVD before start ==="
+          echo "Listing available AVDs:"
+          avdmanager list avd || echo "Failed to list AVDs"
+          
+          # Try to find AVD
+          AVD_FOUND=false
+          AVD_NAME=""
+          
+          # Check if test_avd exists
+          if avdmanager list avd | grep -q "test_avd"; then
+            AVD_NAME="test_avd"
+            AVD_FOUND=true
+            echo "✅ Found AVD: test_avd"
+          else
+            # Try to get first available AVD
+            AVD_NAME=$(avdmanager list avd | grep "Name:" | head -1 | awk '{print $2}' || echo "")
+            if [ -n "$AVD_NAME" ]; then
+              AVD_FOUND=true
+              echo "✅ Using AVD: $AVD_NAME"
+            else
+              echo "❌ No AVD found! Creating one..."
+              # Try to create AVD again
+              echo "no" | avdmanager create avd \
+                --force \
+                --name test_avd \
+                --package "system-images;android-33;default;x86_64" \
+                --device "pixel_4" || true
+              AVD_NAME="test_avd"
+            fi
+          fi
+          
           echo "Preparing ADB..."
           adb kill-server || true
           sleep 1
           adb start-server
           sleep 2
           
-          echo "Starting emulator in background..."
+          echo "Starting emulator with AVD: $AVD_NAME"
           $ANDROID_HOME/emulator/emulator \
-            -avd test_avd \
+            -avd "$AVD_NAME" \
             -port 5554 \
             -no-window \
             -gpu swiftshader_indirect \
@@ -98,6 +164,7 @@ jobs:
             &
           EMULATOR_PID=$!
           echo "Emulator started with PID: $EMULATOR_PID"
+          sleep 5
           
           echo "=== Waiting for Emulator to Boot ==="
           
