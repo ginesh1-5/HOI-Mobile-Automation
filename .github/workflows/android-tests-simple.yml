@@ -43,16 +43,36 @@ jobs:
           target: default
           arch: x86_64
 
+      # Verify System Image Installation
+      - name: Verify System Image Installation
+        run: |
+          echo "=== Checking installed system images ==="
+          sdkmanager --list_installed | grep "system-images;android-33" || echo "System image not found, installing..."
+          
+          # Ensure system image is installed
+          yes | sdkmanager "system-images;android-33;default;x86_64" || true
+          
+          echo "=== Installed system images ==="
+          sdkmanager --list_installed | grep system-images
+
       # Create Android Emulator AVD
       - name: Create Android Emulator AVD
         run: |
           echo "=== Creating AVD ==="
+          
+          # List available devices
+          echo "Available devices:"
+          avdmanager list device | head -20
+          
+          # Create AVD
           echo "no" | avdmanager create avd \
             --force \
             --name test_avd \
             --package "system-images;android-33;default;x86_64" \
-            --device "pixel_4" \
-            --abi x86_64
+            --device "pixel_4"
+          
+          echo "=== Verifying AVD creation ==="
+          avdmanager list avd
           echo "✅ AVD created successfully"
 
       # Start Android Emulator
